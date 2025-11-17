@@ -105,9 +105,7 @@ class MCPClient:
 
             raise Exception(error_msg) from e
 
-    # -------------------------------------------------------------------------
-    # NEW POLLING FUNCTION — CLEAN, SIMPLE, COMMENTED, INDENT FIXED
-    # -------------------------------------------------------------------------
+    
     def _poll_until_complete(
         self,
         tool_name: str,
@@ -231,7 +229,7 @@ class MCPClient:
             logger.log_error(f"Error listing creative formats: {str(e)}")
             raise
 
-    def preview_creative(self, format_id: str) -> Dict[str, Any]]:
+    def preview_creative(self, format_id: str) -> Dict[str, Any]:
         """Fetch preview for a given creative format."""
         try:
             response = self.call_tool(
