@@ -5,6 +5,15 @@ import uuid
 app = Flask(__name__)
 state = {}
 
+@app.route("/mcp/tools", methods=["GET"])
+def list_tools():
+    """Return available MCP tools"""
+    return jsonify({
+        "tools": [
+            {"name": "list_creative_formats"},
+            {"name": "preview_creative"}
+        ]
+    })
 
 @app.route("/mcp", methods=["POST"])
 def mcp():
