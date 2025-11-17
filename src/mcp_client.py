@@ -29,12 +29,6 @@ class MCPClient:
     ):
         """
         Initialize MCP client.
-        
-        Args:
-            agent_url: Base URL of the Creative Agent
-            max_retries: Maximum number of retries for async operations
-            retry_delay: Delay between retries in seconds
-            timeout: Maximum time to wait for completion in seconds
         """
         self.agent_url = agent_url.rstrip('/')
         self.max_retries = max_retries
@@ -54,18 +48,8 @@ class MCPClient:
     ) -> Dict[str, Any]:
         """
         Make an MCP request to the Creative Agent.
-        
-        Args:
-            tool_name: Name of the MCP tool to call
-            context_id: Context ID for the request
-            input_data: Input data for the tool
-            
-        Returns:
-            Response dictionary from the agent
-            
-        Raises:
-            Exception: If request fails
         """
+        
         request_body = {
             "tool_name": tool_name,
             "context_id": context_id,
@@ -73,9 +57,7 @@ class MCPClient:
         }
         
         try:
-            # MCP endpoint is typically at /mcp/tools or /tools
             endpoint = f"{self.agent_url}/mcp/tools"
-            
             logger.log_info(f"Making MCP request to {endpoint}")
             
             response = self.session.post(
@@ -87,7 +69,6 @@ class MCPClient:
             response.raise_for_status()
             
             result = response.json()
-            
             logger.log_mcp_call(
                 tool_name=tool_name,
                 context_id=context_id,
@@ -95,7 +76,6 @@ class MCPClient:
                 response_status=result.get("status", "unknown"),
                 response_data=result
             )
-            
             return result
             
         except requests.exceptions.RequestException as e:
@@ -108,53 +88,52 @@ class MCPClient:
                 error=error_msg
             )
             raise Exception(error_msg) from e
-            
+
     def _poll_until_complete(
         self,
         tool_name: str,
         context_id: str,
         initial_response: Dict[str, Any]
     ) -> Dict[str, Any]:
-    """
-    Poll the operation_url returned by the agent until completed.
-    """
+        """
+        Poll the operation_url returned by the agent until completed.
+        """
 
-    operation_url = initial_response.get("operation_url")
-    if not operation_url:
-        raise Exception("No operation_url returned by agent")
+        operation_url = initial_response.get("operation_url")
+        if not operation_url:
+            raise Exception("No operation_url returned by agent")
 
-    status = initial_response.get("status", "unknown")
-    if status == "completed":
-        return initial_response
-    if status == "failed":
-        raise Exception(initial_response.get("error", "Operation failed"))
+        status = initial_response.get("status", "unknown")
+        if status == "completed":
+            return initial_response
+        if status == "failed":
+            raise Exception(initial_response.get("error", "Operation failed"))
 
-    start_time = time.time()
+        start_time = time.time()
 
-    while True:
-        # Timeout check
-        if time.time() - start_time > self.timeout:
-            raise Exception("Operation timed out")
+        while True:
+            if time.time() - start_time > self.timeout:
+                raise Exception("Operation timed out")
 
-        time.sleep(self.retry_delay)
+            time.sleep(self.retry_delay)
 
-        try:
-            response = self.session.get(operation_url, timeout=30)
-            response.raise_for_status()
-            result = response.json()
+            try:
+                response = self.session.get(operation_url, timeout=30)
+                response.raise_for_status()
+                result = response.json()
 
-            logger.log_info(f"Poll: {result.get('status')} at {operation_url}")
+                logger.log_info(f"Poll: {result.get('status')} at {operation_url}")
 
-            if result.get("status") == "completed":
-                return result
+                if result.get("status") == "completed":
+                    return result
 
-            if result.get("status") == "failed":
-                raise Exception(result.get("error", "Operation failed"))
+                if result.get("status") == "failed":
+                    raise Exception(result.get("error", "Operation failed"))
 
-        except Exception as e:
-            logger.log_warning(f"Polling failed: {str(e)}")
-            continue
-    
+            except Exception as e:
+                logger.log_warning(f"Polling failed: {str(e)}")
+                continue
+
     def call_tool(
         self,
         tool_name: str,
@@ -163,26 +142,16 @@ class MCPClient:
     ) -> Dict[str, Any]:
         """
         Call an MCP tool and optionally wait for completion.
-        
-        Args:
-            tool_name: Name of the MCP tool
-            input_data: Input data for the tool
-            wait_for_completion: Whether to poll until completion
-            
-        Returns:
-            Response dictionary
         """
         context_id = self._generate_context_id()
         input_data = input_data or {}
         
-        # Make initial request
         response = self._make_mcp_request(
             tool_name=tool_name,
             context_id=context_id,
             input_data=input_data
         )
         
-        # If async and we should wait, poll until complete
         if wait_for_completion:
             status = response.get("status", "unknown")
             if status in ["queued", "in_progress"]:
@@ -197,9 +166,6 @@ class MCPClient:
     def list_creative_formats(self) -> List[Dict[str, Any]]:
         """
         List all available creative formats.
-        
-        Returns:
-            List of format dictionaries with FormatID
         """
         try:
             response = self.call_tool(
@@ -211,7 +177,6 @@ class MCPClient:
             if response.get("status") == "completed":
                 formats = response.get("result", {}).get("formats", [])
                 
-                # Add FormatID to each format (FormatID = agent_url + id)
                 for format_item in formats:
                     format_id = format_item.get("id", "")
                     format_item["FormatID"] = f"{self.agent_url}/{format_id}"
@@ -227,12 +192,6 @@ class MCPClient:
     def preview_creative(self, format_id: str) -> Dict[str, Any]:
         """
         Preview a creative by FormatID.
-        
-        Args:
-            format_id: FormatID to preview
-            
-        Returns:
-            Preview data dictionary
         """
         try:
             response = self.call_tool(
@@ -249,5 +208,3 @@ class MCPClient:
         except Exception as e:
             logger.log_error(f"Error previewing creative: {str(e)}")
             raise
-
-
