@@ -9,6 +9,11 @@ import requests
 from typing import List, Dict, Any, Optional
 import sys
 from pathlib import Path
+import us
+
+# Render backend URL (injected via environment variable)
+DEFAULT_BACKEND_URL = os.environ.get("BACKEND_URL", "").strip()
+
 
 # Add current directory to path for imports when running as script
 current_dir = Path(__file__).parent
@@ -35,7 +40,9 @@ if "selected_format_id" not in st.session_state:
 if "preview_data" not in st.session_state:
     st.session_state.preview_data = None
 if "agent_url" not in st.session_state:
-    st.session_state.agent_url = "https://adzymic-exercise.s3.ap-southeast-1.amazonaws.com/adcp"
+    # If BACKEND_URL env var exists (Render), use it; else keep empty and user types manually
+    st.session_state.agent_url = DEFAULT_BACKEND_URL or ""
+
 
 
 def display_preview(preview_data: Dict[str, Any]):
@@ -252,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
