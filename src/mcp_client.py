@@ -108,85 +108,52 @@ class MCPClient:
                 error=error_msg
             )
             raise Exception(error_msg) from e
-    
+            
     def _poll_until_complete(
         self,
         tool_name: str,
         context_id: str,
         initial_response: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Poll for completion of async operation.
-        
-        Args:
-            tool_name: Name of the tool
-            context_id: Context ID
-            initial_response: Initial response from the agent
-            
-        Returns:
-            Final response when completed
-            
-        Raises:
-            Exception: If operation fails or times out
-        """
-        status = initial_response.get("status", "unknown")
-        
-        # If already completed, return immediately
-        if status == "completed":
-            return initial_response
-        
-        # If failed, raise exception
-        if status == "failed":
-            error_msg = initial_response.get("error", "Operation failed")
-            raise Exception(f"Operation failed: {error_msg}")
-        
-        # Poll for completion
-        start_time = time.time()
-        retry_count = 0
-        last_response = initial_response
-        
-        while retry_count < self.max_retries:
-            # Check timeout
-            elapsed = time.time() - start_time
-            if elapsed > self.timeout:
-                raise Exception(f"Operation timed out after {self.timeout} seconds")
-            
-            # Wait before next poll
-            time.sleep(self.retry_delay)
-            
-            # Poll for status
-            try:
-                poll_input = {"context_id": context_id}
-                response = self._make_mcp_request(
-                    tool_name=f"{tool_name}_status",
-                    context_id=context_id,
-                    input_data=poll_input
-                )
-                
-                status = response.get("status", "unknown")
-                last_response = response
-                
-                logger.log_info(f"Poll {retry_count + 1}: Status = {status}")
-                
-                if status == "completed":
-                    return response
-                elif status == "failed":
-                    error_msg = response.get("error", "Operation failed")
-                    raise Exception(f"Operation failed: {error_msg}")
-                
-                retry_count += 1
-                
-            except Exception as e:
-                # If polling fails, try to use the last known response
-                logger.log_warning(f"Poll failed: {str(e)}")
-                retry_count += 1
-                continue
-        
-        # If we exhausted retries, return last response or raise
-        if status in ["queued", "in_progress"]:
-            raise Exception(f"Operation did not complete after {self.max_retries} retries")
-        
-        return last_response
+    """
+    Poll the operation_url returned by the agent until completed.
+    """
+
+    operation_url = initial_response.get("operation_url")
+    if not operation_url:
+        raise Exception("No operation_url returned by agent")
+
+    status = initial_response.get("status", "unknown")
+    if status == "completed":
+        return initial_response
+    if status == "failed":
+        raise Exception(initial_response.get("error", "Operation failed"))
+
+    start_time = time.time()
+
+    while True:
+        # Timeout check
+        if time.time() - start_time > self.timeout:
+            raise Exception("Operation timed out")
+
+        time.sleep(self.retry_delay)
+
+        try:
+            response = self.session.get(operation_url, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+
+            logger.log_info(f"Poll: {result.get('status')} at {operation_url}")
+
+            if result.get("status") == "completed":
+                return result
+
+            if result.get("status") == "failed":
+                raise Exception(result.get("error", "Operation failed"))
+
+        except Exception as e:
+            logger.log_warning(f"Polling failed: {str(e)}")
+            continue
     
     def call_tool(
         self,
@@ -282,4 +249,5 @@ class MCPClient:
         except Exception as e:
             logger.log_error(f"Error previewing creative: {str(e)}")
             raise
+
 
