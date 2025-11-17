@@ -9,7 +9,7 @@ import requests
 from typing import List, Dict, Any, Optional
 import sys
 from pathlib import Path
-import us
+import os
 
 # Render backend URL (injected via environment variable)
 DEFAULT_BACKEND_URL = os.environ.get("BACKEND_URL", "").strip()
@@ -259,4 +259,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
